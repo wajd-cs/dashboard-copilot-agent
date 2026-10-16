@@ -1,0 +1,61 @@
+# Dashboard Co-pilot Agent
+
+An interactive, bilingual (English / Arabic) analytics app built with Streamlit. Upload any CSV or Excel file and instantly get a working dashboard — filters, KPI cards, click-to-filter charts and design recommendations — plus an AI assistant powered by Google Gemini that understands your data.
+
+**Live demo:** [your-app.streamlit.app](https://your-app.streamlit.app)
+
+## Features
+
+### Interactive dashboard
+- **Power BI-style filters** — date range, multi-select category filters and a numeric range slider. Every card, table and download updates instantly.
+- **Click-to-filter charts** — click a bar, point or slice and the whole dashboard filters to it, just like cross-filtering in Power BI.
+- **Smart KPI cards** — totals, averages and maximums with context: share of total when filtered, change vs. the overall average, and latest period vs. the same point in the previous month, quarter or year.
+- **Chart builder** — Bar, Line, Donut and Scatter charts with Sum / Average / Count aggregation. Date columns are detected automatically, and ID columns are kept out of the measures.
+- **Export** — download the filtered data as CSV or Excel (Arabic text stays readable in Excel).
+
+### AI assistant
+- A floating assistant button that stays in the corner while you scroll, opening a compact chat panel.
+- Answers questions about Excel formulas and Pandas code using your file's **real column names** and the **filters you applied**.
+- Ready-made questions to get started, and replies that stream in word by word.
+- Automatically switches to a backup Gemini model when the main one is busy, with clear messages instead of raw errors.
+
+### Smart design recommendations
+- Detects the data's domain (healthcare, finance, HR or general) from the file and column names.
+- Suggests a matching color palette, which KPI columns to highlight and the best chart types for the data.
+
+### Built for everyone
+- **English by default**, with a one-tap switch to Arabic and a full right-to-left layout.
+- Responsive design that works on phones, tablets and laptops.
+
+## Tech stack
+Python · Streamlit · Pandas · Plotly · Google Gemini API (google-genai)
+
+## Run locally
+
+1. Install the requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Create a `.env` file next to `app.py` with your Gemini API key:
+   ```
+   GEMINI_API_KEY=your_key_here
+   ```
+3. Start the app:
+   ```bash
+   streamlit run app.py
+   ```
+
+## Deploy on Streamlit Community Cloud
+Deploy the repository with `app.py` as the main file, then add your key under **Settings → Secrets**:
+```toml
+GEMINI_API_KEY = "your_key_here"
+```
+
+## Privacy note
+When you use the assistant, the column names, the first 5 rows and summary statistics of the current view are sent to Google Gemini so it can answer accurately. No data is stored by the app.
+
+## Author
+**Wajd Al-Luhaibi** — Computer Science student at Umm Al-Qura University, focused on data analysis.
+
+- GitHub: [wajd-cs](https://github.com/wajd-cs)
+- X: [@wajd_cs](https://x.com/wajd_cs)
