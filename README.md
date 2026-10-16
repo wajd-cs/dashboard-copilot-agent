@@ -6,11 +6,8 @@
 
 [![Live App](https://img.shields.io/badge/Live_App-Open_Dashboard-2563EB?style=for-the-badge&logo=streamlit&logoColor=white)](https://dashboard-copilot-agent.streamlit.app)
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
-![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+**Try it live:** [dashboard-copilot-agent.streamlit.app](https://dashboard-copilot-agent.streamlit.app)
+
 
 </div>
 
@@ -53,46 +50,6 @@ The project combines data analysis, dashboard design and applied AI in a single,
 | AI | Google Gemini API (`google-genai`) |
 | Deployment | Streamlit Community Cloud |
 
-## Project Structure
-
-```
-dashboard-copilot-agent/
-├── app.py              # Application: UI, analytics logic and AI assistant
-├── requirements.txt    # Python dependencies
-└── README.md
-```
-
-## Getting Started
-
-**1. Clone the repository**
-```bash
-git clone https://github.com/wajd-cs/dashboard-copilot-agent.git
-cd dashboard-copilot-agent
-```
-
-**2. Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-**3. Add your Gemini API key** in a `.env` file at the project root
-```
-GEMINI_API_KEY=your_api_key
-```
-
-**4. Run the app**
-```bash
-streamlit run app.py
-```
-
-## Deployment
-
-The app is deployed on Streamlit Community Cloud. To deploy your own copy, point a new app at `app.py` and add the key under **Settings → Secrets**:
-
-```toml
-GEMINI_API_KEY = "your_api_key"
-```
-
 ## Data Privacy
 
 Uploaded files are processed in memory and are not stored. When the assistant is used, only the column names, a five-row sample and summary statistics of the current view are sent to Google Gemini to generate an answer.
@@ -103,6 +60,6 @@ Uploaded files are processed in memory and are not stored. When the assistant is
 
 **Developed by Wajd Al-Luhaibi**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/YOUR-LINKEDIN-USERNAME)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/wajd-al-luhaibi-9194a1396)
 
 </div>
