@@ -22,6 +22,7 @@ st.set_page_config(
 )
  
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
  
 TEXT = {
     "ar": {
@@ -110,7 +111,9 @@ TEXT = {
         "chat_placeholder": "اكتب سؤالك هنا...",
         "thinking": "جاري التفكير...",
         "no_key": "لم يتم ضبط مفتاح GEMINI_API_KEY، لذلك المساعد غير مفعّل حالياً.",
-        "ai_error": "تعذّر الحصول على رد من Gemini.",
+        "ai_error": "تعذّر الحصول على رد من المساعد. حاول مرة ثانية.",
+        "ai_busy": "المساعد عليه ضغط كبير الحين. حاول مرة ثانية بعد دقيقة.",
+        "ai_quota": "وصل المساعد للحد المسموح مؤقتاً. حاول مرة ثانية بعد شوي.",
         "clear_chat": "مسح المحادثة",
         "clear_short": "مسح",
         "lang_switched": "تم التبديل إلى العربية",
@@ -204,7 +207,9 @@ TEXT = {
         "chat_placeholder": "Ask your question...",
         "thinking": "Thinking...",
         "no_key": "GEMINI_API_KEY is not set, so the assistant is currently disabled.",
-        "ai_error": "Couldn't get a reply from Gemini.",
+        "ai_error": "Couldn't get a reply from the assistant. Please try again.",
+        "ai_busy": "The assistant is very busy right now. Please try again in a minute.",
+        "ai_quota": "The assistant has reached its usage limit for now. Please try again shortly.",
         "clear_chat": "Clear chat",
         "clear_short": "Clear",
         "lang_switched": "Switched to English",
@@ -765,23 +770,44 @@ User question: {question}"""
  
     client = get_client(api_key)
     fast = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
-    for config in (fast, None):
+    models = [GEMINI_MODEL] + [m for m in FALLBACK_MODELS if m != GEMINI_MODEL]
+    attempts = [(m, c) for m in models for c in (fast, None)]
+    last_error = None
+    skip_model = None
+    for model, config in attempts:
+        if model == skip_model:
+            continue
         got_text = False
         try:
-            for chunk in client.models.generate_content_stream(
-                model=GEMINI_MODEL, contents=prompt, config=config,
-            ):
+            for chunk in client.models.generate_content_stream(model=model, contents=prompt, config=config):
                 if chunk.text:
                     got_text = True
                     yield chunk.text
-            if not got_text:
-                yield t("ai_error")
-            return
+            if got_text:
+                return
         except Exception as error:
-            if config is not None and not got_text:
-                continue
-            yield f"\n\n{t('ai_error')}\n\n`{error}`"
-            return
+            last_error = error
+            print(f"Gemini error on {model}: {error}")
+            if got_text:
+                yield "\n\n" + friendly_error(error)
+                return
+            if is_capacity_error(error):
+                skip_model = model
+    yield friendly_error(last_error)
+ 
+ 
+def is_capacity_error(error):
+    text = str(error).upper()
+    return any(k in text for k in ("503", "UNAVAILABLE", "OVERLOADED", "429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND"))
+ 
+ 
+def friendly_error(error):
+    text = str(error).upper() if error else ""
+    if any(k in text for k in ("429", "RESOURCE_EXHAUSTED", "QUOTA")):
+        return t("ai_quota")
+    if any(k in text for k in ("503", "UNAVAILABLE", "OVERLOADED", "TIMEOUT", "TIMED OUT", "DEADLINE")):
+        return t("ai_busy")
+    return t("ai_error")
  
  
 SUGGESTIONS = {
@@ -810,7 +836,7 @@ def render_chat_widget(context):
     messages = st.session_state.messages
     with st.container(key="chat_fab"):
         with st.popover(t("chat_button")):
-            head = st.columns([5, 1], vertical_alignment="center")
+            head = st.columns([3, 1], vertical_alignment="center")
             head[0].markdown(f"**{t('chat_header')}**")
             if messages:
                 head[1].button(t("clear_short"), key="btn_clear_chat", on_click=clear_chat, help=t("clear_chat"))
