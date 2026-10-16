@@ -2,7 +2,7 @@
 
 An interactive, bilingual (English / Arabic) analytics app built with Streamlit. Upload any CSV or Excel file and instantly get a working dashboard — filters, KPI cards, click-to-filter charts and design recommendations — plus an AI assistant powered by Google Gemini that understands your data.
 
-**Live demo:** [your-app.streamlit.app](https://your-app.streamlit.app)
+**Live demo:** [dashboard-copilot-agent.streamlit.app](https://dashboard-copilot-agent.streamlit.app)
 
 ## Features
 
@@ -15,6 +15,7 @@ An interactive, bilingual (English / Arabic) analytics app built with Streamlit.
 
 ### AI assistant
 - A floating assistant button that stays in the corner while you scroll, opening a compact chat panel.
+- A welcome screen that lets visitors pick their language and explains in three simple steps how to use the app.
 - Answers questions about Excel formulas and Pandas code using your file's **real column names** and the **filters you applied**.
 - Ready-made questions to get started, and replies that stream in word by word.
 - Automatically switches to a backup Gemini model when the main one is busy, with clear messages instead of raw errors.
