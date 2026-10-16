@@ -5,25 +5,25 @@ import os
 import re
 import warnings
 import zlib
- 
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
- 
+
 load_dotenv()
- 
+
 st.set_page_config(
     page_title="Dashboard Co-pilot Agent | Wajd",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
- 
+
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
- 
+
 TEXT = {
     "ar": {
         "title": "مساعد لوحات التحكم الذكية",
@@ -116,15 +116,14 @@ TEXT = {
         "ai_quota": "وصل المساعد للحد المسموح مؤقتاً. حاول مرة ثانية بعد شوي.",
         "clear_chat": "مسح المحادثة",
         "clear_short": "مسح",
-        "welcome_title": "أهلاً بك",
-        "welcome_desc": "Dashboard Co-pilot يحوّل ملف بياناتك إلى لوحة تحكم تفاعلية خلال ثوانٍ، بدون أي برمجة.",
-        "welcome_points": [
-            "ارفع ملف CSV أو Excel وشوف أهم الأرقام فوراً.",
-            "فلتر بياناتك واضغط على الرسوم لاستكشافها، مثل Power BI.",
-            "احصل على اقتراحات للألوان والمؤشرات والرسوم المناسبة لبياناتك.",
-            "اسأل المساعد الذكي عن دوال الإكسل وأكواد Pandas.",
-            "حمّل بياناتك بعد الفلترة كملف CSV أو Excel.",
+        "intro_desc": "حوّل أي ملف Excel أو CSV إلى لوحة تحكم واضحة وتفاعلية خلال ثوانٍ، بدون أي خبرة.",
+        "intro_how": "كيف تستخدمه",
+        "intro_steps": [
+            ("ارفع ملفك", "ملف Excel أو CSV فيه بياناتك"),
+            ("استكشف بياناتك", "تظهر لك الأرقام والرسوم والفلاتر فوراً"),
+            ("اسأل المساعد", "يساعدك تفهم بياناتك وفي دوال الإكسل"),
         ],
+        "change_lang": "تغيير اللغة",
         "start": "ابدأ",
         "lang_switched": "تم التبديل إلى العربية",
         "chat_button": "المساعد الذكي",
@@ -222,15 +221,14 @@ TEXT = {
         "ai_quota": "The assistant has reached its usage limit for now. Please try again shortly.",
         "clear_chat": "Clear chat",
         "clear_short": "Clear",
-        "welcome_title": "Welcome",
-        "welcome_desc": "Dashboard Co-pilot turns your data file into an interactive dashboard in seconds, with no coding needed.",
-        "welcome_points": [
-            "Upload a CSV or Excel file and see the key numbers instantly.",
-            "Filter your data and click charts to explore it, like Power BI.",
-            "Get color, KPI and chart suggestions that fit your data.",
-            "Ask the AI assistant about Excel formulas and Pandas code.",
-            "Download your filtered data as CSV or Excel.",
+        "intro_desc": "Turn any Excel or CSV file into a clear, interactive dashboard in seconds. No experience needed.",
+        "intro_how": "How it works",
+        "intro_steps": [
+            ("Upload your file", "An Excel or CSV file with your data"),
+            ("Explore your data", "Numbers, charts and filters appear instantly"),
+            ("Ask the assistant", "Get help understanding your data and formulas"),
         ],
+        "change_lang": "Change language",
         "start": "Start",
         "lang_switched": "Switched to English",
         "chat_button": "Ask the assistant",
@@ -238,9 +236,9 @@ TEXT = {
         "chat_welcome": "Hi! I'm your data-analysis assistant. Ask me about Excel formulas or Pandas code, or pick a ready-made question below.",
     },
 }
- 
+
 OTHER_LABELS = {TEXT["ar"]["other"], TEXT["en"]["other"]}
- 
+
 DOMAINS = [
     {
         "keys": ["patient", "hospital", "doctor", "health", "clinic", "medical",
@@ -267,28 +265,28 @@ DOMAINS = [
         "colors": ("#065F46", "#10B981", "#A7F3D0"),
     },
 ]
- 
+
 GENERAL_DOMAIN = {
     "name": {"ar": "لوحة التحليلات العامة", "en": "General Analytics"},
     "desc": {"ar": "لوحة ألوان عصرية ومتوازنة تناسب مختلف أنواع البيانات.",
              "en": "A modern, balanced palette that suits most kinds of data."},
     "colors": ("#4C1D95", "#8B5CF6", "#DDD6FE"),
 }
- 
+
 DATE_HINTS = ("date", "time", "month", "year", "day", "تاريخ", "شهر", "سنة", "يوم", "وقت")
 MAX_FILTER_CATEGORIES = 50
 MAX_CATEGORY_FILTERS = 4
- 
+
 st.session_state.setdefault("lang", "en")
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("filter_ver", 0)
 st.session_state.setdefault("chart_ver", 0)
- 
- 
+
+
 def t(key):
     return TEXT[st.session_state.lang][key]
- 
- 
+
+
 @st.cache_data(show_spinner=False)
 def load_data(file_bytes, name):
     buffer = io.BytesIO(file_bytes)
@@ -299,8 +297,8 @@ def load_data(file_bytes, name):
             buffer.seek(0)
             return pd.read_csv(buffer, encoding="cp1256")
     return pd.read_excel(buffer)
- 
- 
+
+
 def detect_date_columns(df):
     found = list(df.select_dtypes(include=["datetime", "datetimetz"]).columns)
     for col in df.select_dtypes(include=["object", "string"]).columns:
@@ -312,8 +310,8 @@ def detect_date_columns(df):
                 df[col] = parsed
                 found.append(col)
     return found
- 
- 
+
+
 def detect_domain(df, file_name):
     text = (file_name + " " + " ".join(map(str, df.columns))).lower()
     tokens = {tok for tok in re.split(r"[\W_]+", text) if tok}
@@ -322,12 +320,12 @@ def detect_domain(df, file_name):
             if key in tokens or (len(key) >= 4 and key in text):
                 return domain
     return GENERAL_DOMAIN
- 
- 
+
+
 def is_id_column(col):
     return "id" in re.split(r"[\W_]+", str(col).lower())
- 
- 
+
+
 def fmt(value):
     if value is None or pd.isna(value):
         return "—"
@@ -335,14 +333,14 @@ def fmt(value):
     if value.is_integer():
         return f"{int(value):,}"
     return f"{value:,.2f}"
- 
- 
+
+
 def pct_change(current, previous):
     if previous is None or pd.isna(previous) or previous == 0 or pd.isna(current):
         return None
     return (current - previous) / abs(previous) * 100
- 
- 
+
+
 def to_excel_bytes(df):
     out = df.copy()
     for col in out.select_dtypes(include=["datetimetz"]).columns:
@@ -350,22 +348,22 @@ def to_excel_bytes(df):
     buffer = io.BytesIO()
     out.to_excel(buffer, index=False)
     return buffer.getvalue()
- 
- 
+
+
 def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
     ver = st.session_state.filter_ver
     mask = pd.Series(True, index=df.index)
     active = []
- 
+
     filter_cats = [
         c for c in category_cols
         if c not in date_cols and 1 < df[c].nunique() <= MAX_FILTER_CATEGORIES
     ][:MAX_CATEGORY_FILTERS]
- 
+
     with st.expander(t("filters"), expanded=False):
         grid = st.columns(2)
         slot = 0
- 
+
         if date_cols:
             dcol = date_cols[0]
             dates = df[dcol].dropna()
@@ -384,7 +382,7 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                         day = df[dcol].dt.date
                         mask &= day.between(start, end)
                         active.append(f"{dcol}: {start} – {end}")
- 
+
         for col in filter_cats:
             options = sorted(df[col].dropna().astype(str).unique())
             with grid[slot % 2]:
@@ -397,7 +395,7 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                 mask &= df[col].astype(str).isin(chosen)
                 shown = "، ".join(chosen[:3]) if st.session_state.lang == "ar" else ", ".join(chosen[:3])
                 active.append(f"{col}: {shown}" + (" …" if len(chosen) > 3 else ""))
- 
+
         usable_nums = [c for c in numeric_cols if not is_id_column(c) and df[c].nunique() > 1]
         if usable_nums:
             with grid[slot % 2]:
@@ -415,22 +413,22 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                     if (low, high) != (lo, hi):
                         mask &= df[num_col].between(low, high)
                         active.append(f"{num_col}: {fmt(low)} – {fmt(high)}")
- 
+
     return df[mask], active
- 
- 
+
+
 def build_chart_key(file_key, chart_type, x_axis, y_axis, agg):
     return f"chart_{file_key}_{st.session_state.chart_ver}_{chart_type}_{x_axis}_{y_axis}_{agg}"
- 
- 
+
+
 def expected_chart_key(file_key):
     state = st.session_state
     parts = [state.get(f"cb_{name}_{file_key}") for name in ("type", "x", "y", "agg")]
     if None in parts or parts[0] == "scatter":
         return None
     return build_chart_key(file_key, *parts)
- 
- 
+
+
 def get_chart_selection(file_key):
     info = st.session_state.get("active_chart")
     if not info or not info.get("selectable"):
@@ -449,8 +447,8 @@ def get_chart_selection(file_key):
     if not values:
         return None
     return {"col": info["x"], "values": values, "is_date": info["is_date"]}
- 
- 
+
+
 def apply_chart_selection(df, selection):
     col = selection["col"]
     if col not in df.columns:
@@ -460,8 +458,8 @@ def apply_chart_selection(df, selection):
         return df[df[col].isin(wanted)]
     wanted = {str(v) for v in selection["values"]}
     return df[df[col].astype(str).isin(wanted)]
- 
- 
+
+
 def render_active_filters(active, selection):
     if not active and not selection:
         return
@@ -484,16 +482,16 @@ def render_active_filters(active, selection):
         st.session_state.filter_ver += 1
         st.session_state.chart_ver += 1
         st.rerun()
- 
- 
+
+
 def delta_html(pct, suffix, fallback=""):
     if pct is None:
         return html.escape(fallback)
     cls = "up" if pct > 0 else "down" if pct < 0 else "flat"
     arrow = "▲" if pct > 0 else "▼" if pct < 0 else "■"
     return f'<span class="delta {cls}">{arrow} {abs(pct):.1f}%</span> {html.escape(suffix)}'
- 
- 
+
+
 def kpi_grid(cards):
     body = "".join(
         f'<div class="kpi-card"><div class="kpi-title">{html.escape(str(title))}</div>'
@@ -502,19 +500,19 @@ def kpi_grid(cards):
         for title, value, sub in cards
     )
     st.markdown(f'<div class="kpi-grid">{body}</div>', unsafe_allow_html=True)
- 
- 
+
+
 def share_sub(part, whole, filtered):
     if not filtered or not whole:
         return ""
     return html.escape(t("of_total").format(p=f"{part / whole * 100:.1f}"))
- 
- 
+
+
 def render_kpis(view, full, numeric_cols, date_cols, file_key):
     st.subheader(t("kpi_header"))
     filtered = len(view) != len(full)
     metrics = [c for c in numeric_cols if not is_id_column(c)] or numeric_cols
- 
+
     controls = st.columns(2)
     metric = None
     period = None
@@ -525,12 +523,12 @@ def render_kpis(view, full, numeric_cols, date_cols, file_key):
             t("compare_by"), ["M", "Q", "Y"],
             format_func=lambda p: t(f"period_{p}"), key=f"kpi_period_{file_key}",
         )
- 
+
     cards = [(
         t("rows"), fmt(len(view)),
         share_sub(len(view), len(full), filtered) or html.escape(t("cols_sub").format(n=view.shape[1])),
     )]
- 
+
     if metric is None:
         total_cells = view.size
         cards += [
@@ -541,19 +539,19 @@ def render_kpis(view, full, numeric_cols, date_cols, file_key):
         ]
         kpi_grid(cards)
         return
- 
+
     series = view[metric]
     total = series.sum()
     mean = series.mean()
     overall_mean = full[metric].mean()
- 
+
     cards.append((f"{t('total')} ({metric})", fmt(total),
                   share_sub(total, full[metric].sum(), filtered) or
                   html.escape(t("min_sub").format(v=fmt(series.min())))))
     cards.append((f"{t('mean')} ({metric})", fmt(mean),
                   delta_html(pct_change(mean, overall_mean), t("vs_overall")) if filtered
                   else html.escape(f"{t('max')}: {fmt(series.max())}")))
- 
+
     if period and len(view):
         dates = view[date_cols[0]]
         if getattr(dates.dt, "tz", None) is not None:
@@ -575,10 +573,10 @@ def render_kpis(view, full, numeric_cols, date_cols, file_key):
     if len(cards) < 4:
         cards.append((f"{t('max')} ({metric})", fmt(series.max()),
                       html.escape(t("min_sub").format(v=fmt(series.min())))))
- 
+
     kpi_grid(cards)
- 
- 
+
+
 def render_tables(view, numeric_cols, file_name):
     tab_preview, tab_stats = st.tabs([t("preview"), t("stats")])
     with tab_preview:
@@ -607,8 +605,8 @@ def render_tables(view, numeric_cols, file_name):
             st.dataframe(view[numeric_cols].describe().round(2), width="stretch")
         else:
             st.info(t("no_numeric"))
- 
- 
+
+
 def style_figure(fig):
     fig.update_layout(
         height=420,
@@ -617,8 +615,8 @@ def style_figure(fig):
         dragmode=False,
     )
     return fig
- 
- 
+
+
 def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, file_key):
     st.subheader(t("chart_header"))
     numeric_cols = [c for c in numeric_cols if not is_id_column(c)] + \
@@ -627,7 +625,7 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
     chart_type = controls[0].selectbox(
         t("chart_type"), ["bar", "line", "pie", "scatter"], format_func=t, key=f"cb_type_{file_key}",
     )
- 
+
     if chart_type == "scatter":
         st.caption(t("scatter_hint"))
         if len(numeric_cols) < 2:
@@ -641,13 +639,13 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
         st.session_state.active_chart = None
         st.plotly_chart(style_figure(fig), width="stretch", config={"displaylogo": False})
         return
- 
+
     x_options = date_cols + [c for c in category_cols if c not in date_cols]
     if not x_options or not numeric_cols:
         st.info(t("need_cat"))
         st.session_state.active_chart = None
         return
- 
+
     default_x = len(date_cols) % len(x_options)
     x_axis = controls[1].selectbox(t("x"), x_options, index=default_x, key=f"cb_x_{file_key}")
     y_axis = controls[2].selectbox(t("y"), numeric_cols, key=f"cb_y_{file_key}")
@@ -657,10 +655,10 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
         key=f"cb_agg_{file_key}",
     )
     st.caption(t("click_hint"))
- 
+
     grouped = df.groupby(x_axis, as_index=False, dropna=True)[y_axis].agg(agg)
     is_date = x_axis in date_cols
- 
+
     if chart_type == "pie":
         limit = 10
         grouped = grouped.sort_values(y_axis, ascending=False)
@@ -687,7 +685,7 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
             grouped = grouped.head(limit)
             st.caption(t("top_note").format(n=limit))
         fig = px.bar(grouped, x=x_axis, y=y_axis, color_discrete_sequence=[colors[0]])
- 
+
     chart_key = build_chart_key(file_key, chart_type, x_axis, y_axis, agg)
     st.session_state.active_chart = {"key": chart_key, "x": x_axis, "is_date": is_date, "selectable": True}
     st.plotly_chart(
@@ -695,13 +693,13 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
         on_select="rerun", selection_mode="points",
         config={"displaylogo": False},
     )
- 
- 
+
+
 def render_recommendations(df, numeric_cols, category_cols, date_cols, domain):
     lang = st.session_state.lang
     st.subheader(t("rec_header"))
     tab_palette, tab_kpi, tab_charts = st.tabs([t("tab_palette"), t("tab_kpi"), t("tab_charts")])
- 
+
     with tab_palette:
         st.info(f"**{t('detected')}** {domain['name'][lang]}\n\n**{t('reason')}** {domain['desc'][lang]}")
         st.markdown(t("palette_intro"))
@@ -711,14 +709,14 @@ def render_recommendations(df, numeric_cols, category_cols, date_cols, domain):
             for c in domain["colors"]
         )
         st.markdown(f'<div class="palette">{swatches}</div>', unsafe_allow_html=True)
- 
+
     with tab_kpi:
         candidates = [c for c in numeric_cols if not is_id_column(c)][:4]
         if candidates:
             sep = "، " if lang == "ar" else ", "
             st.markdown(t("kpi_suggest") + " " + sep.join(f"`{c}`" for c in candidates))
         st.markdown(t("kpi_tips"))
- 
+
     with tab_charts:
         recs = []
         text_cats = [c for c in category_cols if c not in date_cols]
@@ -732,8 +730,8 @@ def render_recommendations(df, numeric_cols, category_cols, date_cols, domain):
         if len(numeric_cols) >= 2:
             recs.append(t("rec_scatter").format(a=numeric_cols[0], b=numeric_cols[1]))
         st.markdown("\n".join(f"- {r}" for r in recs) if recs else t("rec_none"))
- 
- 
+
+
 def get_api_key():
     try:
         if "GEMINI_API_KEY" in st.secrets:
@@ -741,13 +739,13 @@ def get_api_key():
     except Exception:
         pass
     return os.getenv("GEMINI_API_KEY")
- 
- 
+
+
 @st.cache_resource(show_spinner=False)
 def get_client(api_key):
     return genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60_000))
- 
- 
+
+
 def dataset_context(view, full, file_name, active_filters):
     if view is None:
         return "No dataset uploaded yet."
@@ -765,29 +763,29 @@ def dataset_context(view, full, file_name, active_filters):
     if not numeric.empty:
         parts.append("Numeric summary of the current view:\n" + numeric.describe().round(2).to_string())
     return "\n\n".join(parts)[:6000]
- 
- 
+
+
 def stream_gemini(question, history, context):
     api_key = get_api_key()
     if not api_key:
         yield t("no_key")
         return
- 
+
     language = "Arabic" if st.session_state.lang == "ar" else "English"
     past = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])
     prompt = f"""You are the assistant inside "Dashboard Co-pilot", a data-analysis app.
 Reply in {language}, concisely, using Markdown.
 When useful, give both the Excel formula and the Pandas code, using the real column names from the dataset.
 If something can't be answered from the dataset, say so instead of inventing numbers.
- 
+
 Dataset:
 {context}
- 
+
 Conversation so far:
 {past or "(none)"}
- 
+
 User question: {question}"""
- 
+
     client = get_client(api_key)
     fast = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
     models = [GEMINI_MODEL] + [m for m in FALLBACK_MODELS if m != GEMINI_MODEL]
@@ -814,13 +812,13 @@ User question: {question}"""
             if is_capacity_error(error):
                 skip_model = model
     yield friendly_error(last_error)
- 
- 
+
+
 def is_capacity_error(error):
     text = str(error).upper()
     return any(k in text for k in ("503", "UNAVAILABLE", "OVERLOADED", "429", "RESOURCE_EXHAUSTED", "404", "NOT_FOUND"))
- 
- 
+
+
 def friendly_error(error):
     text = str(error).upper() if error else ""
     if any(k in text for k in ("429", "RESOURCE_EXHAUSTED", "QUOTA")):
@@ -828,30 +826,30 @@ def friendly_error(error):
     if any(k in text for k in ("503", "UNAVAILABLE", "OVERLOADED", "TIMEOUT", "TIMED OUT", "DEADLINE")):
         return t("ai_busy")
     return t("ai_error")
- 
- 
+
+
 SUGGESTIONS = {
     "ar": ["لخّص لي البيانات المرفوعة", "وش أهم المؤشرات اللي أركز عليها؟", "كيف أحسب المتوسط في إكسل وPandas؟"],
     "en": ["Summarize my uploaded data", "Which KPIs should I focus on?", "How do I compute an average in Excel and Pandas?"],
 }
- 
- 
+
+
 def queue_question(text):
     text = (text or "").strip()
     if text:
         st.session_state.messages.append({"role": "user", "content": text})
         st.session_state.awaiting_reply = True
- 
- 
+
+
 def submit_chat():
     queue_question(st.session_state.get("chat_text", ""))
- 
- 
+
+
 def clear_chat():
     st.session_state.messages = []
     st.session_state.awaiting_reply = False
- 
- 
+
+
 def render_chat_widget(context):
     messages = st.session_state.messages
     with st.container(key="chat_fab"):
@@ -860,7 +858,7 @@ def render_chat_widget(context):
             head[0].markdown(f"**{t('chat_header')}**")
             if messages:
                 head[1].button(t("clear_short"), key="btn_clear_chat", on_click=clear_chat, help=t("clear_chat"))
- 
+
             with st.container(height=280, border=False):
                 if not messages:
                     with st.chat_message("assistant"):
@@ -880,16 +878,16 @@ def render_chat_widget(context):
                         reply = st.write_stream(itertools.chain([first], pieces))
                     messages.append({"role": "assistant", "content": reply})
                     st.session_state.awaiting_reply = False
- 
+
             with st.form("chat_form", clear_on_submit=True, border=False):
                 st.text_input(t("chat_header"), key="chat_text",
                               placeholder=t("chat_placeholder"), label_visibility="collapsed")
                 st.form_submit_button(t("send"), on_click=submit_chat)
- 
- 
+
+
 LANG_LABELS = {"ar": "ع", "en": "EN"}
- 
- 
+
+
 def on_lang_change():
     choice = st.session_state.lang_choice
     if choice is None:
@@ -898,54 +896,65 @@ def on_lang_change():
     if choice != st.session_state.lang:
         st.session_state.lang = choice
         st.session_state.lang_toast = True
- 
- 
+
+
 st.session_state.setdefault("started", False)
- 
- 
+st.session_state.setdefault("welcome_step", "lang")
+
+
 def pick_language(code):
     st.session_state.lang = code
     st.session_state.lang_choice = code
- 
- 
+    st.session_state.welcome_step = "intro"
+
+
+def back_to_language():
+    st.session_state.welcome_step = "lang"
+
+
 def start_app():
     st.session_state.started = True
- 
- 
+
+
 def render_welcome():
-    lang = st.session_state.lang
-    with st.container(key="welcome_card"):
+    if st.session_state.welcome_step == "lang":
+        with st.container(key="welcome_lang_card"):
+            st.markdown(
+                '<div class="w-hello">'
+                '<div class="w-hello-main">Welcome</div>'
+                '<div class="w-hello-ar">أهلاً بك</div>'
+                '</div>'
+                '<div class="w-choose">Choose your language &nbsp;·&nbsp; اختر اللغة</div>',
+                unsafe_allow_html=True,
+            )
+            with st.container(key="welcome_lang"):
+                pills = st.columns(2)
+                pills[0].button("English", key="pick_en", on_click=pick_language, args=("en",))
+                pills[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",))
+        return
+
+    steps = "".join(
+        f'<div class="w-step" style="--i:{i}">'
+        f'<span class="w-step-num">{i + 1}</span>'
+        f'<div><div class="w-step-title">{html.escape(title)}</div>'
+        f'<div class="w-step-sub">{html.escape(sub)}</div></div></div>'
+        for i, (title, sub) in enumerate(t("intro_steps"))
+    )
+    with st.container(key="welcome_intro_card"):
         st.markdown(
-            '<div class="welcome-top">'
-            '<span class="welcome-dot"></span>'
-            '<span class="welcome-brand">Dashboard Co-pilot Agent</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        with st.container(key="welcome_lang"):
-            pills = st.columns(2)
-            pills[0].button("English", key="pick_en", on_click=pick_language, args=("en",),
-                            type="primary" if lang == "en" else "secondary")
-            pills[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",),
-                            type="primary" if lang == "ar" else "secondary")
- 
-        features = "".join(
-            f'<div class="welcome-feature" style="--i:{i}">'
-            f'<span class="welcome-num">{i + 1:02d}</span>'
-            f'<span class="welcome-feature-text">{html.escape(point)}</span></div>'
-            for i, point in enumerate(t("welcome_points"))
-        )
-        st.markdown(
-            f'<div class="welcome-body">'
-            f'<h2 class="welcome-title">{html.escape(t("welcome_title"))}</h2>'
-            f'<p class="welcome-desc">{html.escape(t("welcome_desc"))}</p>'
-            f'<div class="welcome-features">{features}</div></div>',
+            f'<div class="w-intro">'
+            f'<div class="w-intro-title">Dashboard Co-pilot</div>'
+            f'<p class="w-intro-desc">{html.escape(t("intro_desc"))}</p>'
+            f'<div class="w-how">{html.escape(t("intro_how"))}</div>'
+            f'<div class="w-steps">{steps}</div></div>',
             unsafe_allow_html=True,
         )
         with st.container(key="welcome_start"):
             st.button(t("start"), key="btn_start", on_click=start_app, type="primary")
- 
- 
+        with st.container(key="welcome_back"):
+            st.button(t("change_lang"), key="btn_back_lang", on_click=back_to_language, type="tertiary")
+
+
 if st.session_state.started:
     st.session_state.setdefault("lang_choice", st.session_state.lang)
     with st.container(key="lang_switch"):
@@ -957,12 +966,12 @@ if st.session_state.started:
             on_change=on_lang_change,
             label_visibility="collapsed",
         )
- 
+
     if st.session_state.pop("lang_toast", False):
         st.toast(t("lang_switched"))
- 
+
 is_ar = st.session_state.lang == "ar"
- 
+
 CSS = """
 <style>
 @keyframes slideUpFade {
@@ -973,11 +982,11 @@ CSS = """
 [data-testid="stToolbar"], [data-testid="stHeader"], [data-testid="stDecoration"] { display: none !important; }
 .stApp .stMarkdown, .stApp h1, .stApp h2, .stApp h3,
 .stApp [data-testid="stCaptionContainer"] { text-align: __ALIGN__; }
- 
+
 [data-testid="stDataFrame"], .js-plotly-plot, .stApp pre, .stApp code {
     direction: ltr; text-align: left; unicode-bidi: isolate;
 }
- 
+
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1002,7 +1011,7 @@ CSS = """
 .delta.up { color: #34d399; }
 .delta.down { color: #f87171; }
 .delta.flat { color: #cbd5e1; }
- 
+
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; }
 .chips-label { color: #94a3b8; font-size: .85rem; font-weight: 600; }
 .chip {
@@ -1012,7 +1021,7 @@ CSS = """
     overflow-wrap: anywhere;
 }
 .chip-chart { background: rgba(16, 185, 129, .15); color: #a7f3d0; border-color: rgba(16, 185, 129, .4); }
- 
+
 .palette { display: flex; flex-wrap: wrap; gap: 16px; margin: 6px 0 4px; }
 .swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .color-box {
@@ -1021,14 +1030,14 @@ CSS = """
     transition: transform .3s cubic-bezier(.175, .885, .32, 1.275), box-shadow .3s ease;
 }
 .color-box:hover { transform: scale(1.2) rotate(5deg); box-shadow: 0 8px 20px rgba(59, 130, 246, .5); }
- 
+
 .footer-box {
     margin-top: 48px; padding: 22px; text-align: center;
     border-top: 1px solid rgba(100, 116, 139, .3); font-size: 1rem;
 }
 .footer-box a { color: #3b82f6; text-decoration: none; font-weight: 700; }
 .footer-box a:hover { color: #60a5fa; text-decoration: underline; }
- 
+
 .st-key-chat_fab,
 div:has(> .st-key-chat_fab) {
     position: fixed !important; bottom: 22px; __SIDE__: 22px; top: auto !important;
@@ -1057,7 +1066,7 @@ div:has(> .st-key-chat_fab) {
 }
 .st-key-chat_suggestions button:hover { background: rgba(59, 130, 246, .22); border-color: #3b82f6; }
 [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"] button { width: 100%; }
- 
+
 .st-key-lang_switch { display: flex; align-items: flex-end; }
 .st-key-lang_switch [data-testid="stButtonGroup"] {
     background: rgba(30, 41, 59, .85); border: 1px solid rgba(59, 130, 246, .3);
@@ -1078,94 +1087,90 @@ div:has(> .st-key-chat_fab) {
 @keyframes langFade_ar { from { opacity: .25; } to { opacity: 1; } }
 @keyframes langFade_en { from { opacity: .25; } to { opacity: 1; } }
 .block-container { animation: langFade___LANG__ .45s ease both; }
- 
-@keyframes welcomeIn { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
+
+@keyframes welcomeIn { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes borderFlow { 0% { background-position: 0 0, 0% 50%; } 100% { background-position: 0 0, 300% 50%; } }
-@keyframes textIn___LANG__ { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes featIn___LANG__ { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes stepIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes pulse { 0%, 100% { box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7), 0 0 0 0 rgba(59, 130, 246, .45); }
                    50% { box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7), 0 0 0 10px rgba(59, 130, 246, 0); } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
- 
-.st-key-welcome_card {
-    max-width: 600px; margin: 6vh auto 0; padding: 28px 28px 26px;
-    border: 1px solid transparent; border-radius: 24px;
+
+.st-key-welcome_lang_card, .st-key-welcome_intro_card {
+    margin: 12vh auto 0; border: 1px solid transparent; border-radius: 24px; color: #e2e8f0;
     background:
         linear-gradient(160deg, #1e293b 0%, #0f172a 100%) padding-box,
         linear-gradient(120deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6) border-box;
     background-size: 100% 100%, 300% 100%;
-    animation: welcomeIn .7s cubic-bezier(.16, 1, .3, 1) both, borderFlow 8s linear infinite;
+    animation: welcomeIn .6s cubic-bezier(.16, 1, .3, 1) both, borderFlow 8s linear infinite;
     box-shadow: 0 30px 70px -25px rgba(37, 99, 235, .45);
-    color: #e2e8f0;
 }
-.welcome-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
-.welcome-dot { width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; animation: blink 1.8s ease-in-out infinite; }
-.welcome-brand { font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #93c5fd; }
- 
-.st-key-welcome_lang {
-    width: fit-content; margin: 0 auto; padding: 4px; border-radius: 999px;
-    background: rgba(15, 23, 42, .8); border: 1px solid rgba(148, 163, 184, .25);
-}
-.st-key-welcome_lang [data-testid="stHorizontalBlock"] { gap: 4px !important; flex-wrap: nowrap !important; }
-.st-key-welcome_lang [data-testid="stColumn"] { width: auto !important; flex: 0 0 auto !important; min-width: 0 !important; }
-.st-key-welcome_lang button {
-    border-radius: 999px !important; padding: .4rem 1.3rem !important; min-height: 0 !important;
-    border: none !important; background: transparent !important; color: #94a3b8 !important;
-    font-weight: 700; transition: background .35s ease, color .35s ease, transform .2s ease;
-}
-.st-key-welcome_lang button:hover { color: #fff !important; transform: translateY(-1px); }
-.st-key-welcome_lang button[kind="primary"],
-.st-key-welcome_lang button[data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, #2563eb, #3b82f6) !important; color: #fff !important;
-    box-shadow: 0 4px 14px -2px rgba(37, 99, 235, .65);
-}
- 
-.welcome-body { direction: __DIR__; margin-top: 18px; }
-.welcome-title {
-    text-align: center; font-size: 2.2rem; font-weight: 800; margin: 0 0 6px;
+.st-key-welcome_lang_card { max-width: 360px; padding: 34px 26px 28px; }
+.st-key-welcome_intro_card { max-width: 440px; padding: 30px 26px 18px; margin-top: 8vh; direction: __DIR__; }
+
+.w-hello { text-align: center; margin-bottom: 18px; }
+.w-hello-main {
+    font-size: 2.3rem; font-weight: 800; line-height: 1.15;
     background: linear-gradient(90deg, #ffffff, #93c5fd); -webkit-background-clip: text;
     background-clip: text; color: transparent;
-    animation: textIn___LANG__ .5s ease both;
 }
-.welcome-desc {
-    text-align: center; color: #cbd5e1; font-size: 1rem; line-height: 1.7; margin: 0 auto 16px; max-width: 470px;
-    animation: textIn___LANG__ .5s ease .08s both;
+.w-hello-ar { font-size: 1.6rem; font-weight: 700; color: #93c5fd; margin-top: 4px; direction: rtl; }
+.w-choose { text-align: center; color: #94a3b8; font-size: .9rem; margin-bottom: 14px; }
+
+.st-key-welcome_lang [data-testid="stHorizontalBlock"] { gap: 10px !important; flex-wrap: nowrap !important; }
+.st-key-welcome_lang [data-testid="stColumn"] { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+.st-key-welcome_lang button {
+    width: 100%; border-radius: 14px; padding: .7rem .5rem; font-size: 1.02rem; font-weight: 700;
+    background: rgba(15, 23, 42, .7); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, .3);
+    transition: transform .2s ease, border-color .2s ease, background .25s ease, box-shadow .25s ease;
 }
-.welcome-features { display: grid; gap: 8px; }
-.welcome-feature {
-    display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px;
-    background: rgba(15, 23, 42, .55); border: 1px solid rgba(148, 163, 184, .14);
-    text-align: __ALIGN__; cursor: default;
-    animation: featIn___LANG__ .45s ease both; animation-delay: calc(.15s + var(--i) * 70ms);
+.st-key-welcome_lang button:hover {
+    transform: translateY(-3px); color: #fff; border-color: transparent;
+    background: linear-gradient(135deg, #2563eb, #3b82f6); box-shadow: 0 10px 24px -8px rgba(37, 99, 235, .8);
+}
+.st-key-welcome_lang button:active { transform: scale(.97); }
+
+.w-intro-title {
+    text-align: center; font-size: 1.9rem; font-weight: 800; margin-bottom: 8px;
+    background: linear-gradient(90deg, #ffffff, #93c5fd); -webkit-background-clip: text;
+    background-clip: text; color: transparent; direction: ltr;
+}
+.w-intro-desc { text-align: center; color: #cbd5e1; font-size: 1rem; line-height: 1.65; margin: 0 0 18px; }
+.w-how { color: #60a5fa; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+         text-align: __ALIGN__; margin-bottom: 8px; }
+.w-steps { display: grid; gap: 8px; }
+.w-step {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px;
+    background: rgba(15, 23, 42, .55); border: 1px solid rgba(148, 163, 184, .14); text-align: __ALIGN__;
+    animation: stepIn .45s ease both; animation-delay: calc(.2s + var(--i) * 90ms);
     transition: transform .25s ease, border-color .25s ease, background .25s ease;
 }
-.welcome-feature:hover {
-    transform: translateX(__NUDGE__); border-color: rgba(59, 130, 246, .55); background: rgba(37, 99, 235, .12);
+.w-step:hover { transform: translateX(__NUDGE__); border-color: rgba(59, 130, 246, .55); background: rgba(37, 99, 235, .12); }
+.w-step-num {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 800; font-size: .9rem; color: #fff; background: linear-gradient(135deg, #2563eb, #06b6d4);
 }
-.welcome-num {
-    flex: 0 0 auto; font-size: .75rem; font-weight: 800; color: #60a5fa; direction: ltr;
-    padding: 4px 8px; border-radius: 8px; background: rgba(59, 130, 246, .14);
-}
-.welcome-feature-text { color: #cbd5e1; font-size: .93rem; line-height: 1.5; }
- 
+.w-step-title { color: #f1f5f9; font-weight: 700; font-size: .97rem; }
+.w-step-sub { color: #94a3b8; font-size: .85rem; margin-top: 1px; }
+
 .st-key-welcome_start { margin-top: 18px; }
 .st-key-welcome_start button {
     width: 100%; border-radius: 14px; padding: .8rem 1rem; font-size: 1.15rem; font-weight: 800;
     background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; color: #fff;
-    animation: pulse 2.4s ease-in-out infinite;
-    transition: transform .2s ease, filter .2s ease;
+    animation: pulse 2.4s ease-in-out infinite; transition: transform .2s ease, filter .2s ease;
 }
 .st-key-welcome_start button:hover { transform: translateY(-2px); filter: brightness(1.12); color: #fff; }
-.st-key-welcome_start button:active { transform: translateY(0) scale(.98); }
- 
+.st-key-welcome_start button:active { transform: scale(.98); }
+.st-key-welcome_back { align-items: center; }
+.st-key-welcome_back button { color: #94a3b8 !important; font-size: .85rem; margin: 2px auto 0; display: block; }
+.st-key-welcome_back button:hover { color: #e2e8f0 !important; text-decoration: underline; }
+
 @media (max-width: 640px) {
-    .st-key-welcome_card { margin-top: 2vh; padding: 22px 16px 18px; border-radius: 20px; }
-    .welcome-title { font-size: 1.75rem; }
-    .welcome-feature { padding: 9px 11px; }
-    .welcome-feature-text { font-size: .86rem; }
-    .welcome-feature:hover { transform: none; }
+    .st-key-welcome_lang_card { margin-top: 14vh; max-width: calc(100vw - 40px); padding: 28px 18px 22px; }
+    .st-key-welcome_intro_card { margin-top: 4vh; padding: 24px 16px 14px; }
+    .w-hello-main { font-size: 2rem; }
+    .w-intro-title { font-size: 1.6rem; }
+    .w-step:hover { transform: none; }
 }
- 
+
 @media (max-width: 900px) {
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1192,19 +1197,19 @@ div:has(> .st-key-chat_fab) {
    .replace("__SIDE__", "left") \
    .replace("__LANG__", st.session_state.lang) \
    .replace("__NUDGE__", "-4px" if is_ar else "4px")
- 
+
 st.markdown(CSS, unsafe_allow_html=True)
- 
+
 if not st.session_state.started:
     render_welcome()
     st.stop()
- 
+
 st.title(t("title"))
 st.caption(t("subtitle"))
 st.divider()
- 
+
 uploaded_file = st.file_uploader(t("upload"), type=["csv", "xlsx"], key="uploader")
- 
+
 df = None
 view = None
 file_name = ""
@@ -1217,31 +1222,31 @@ if uploaded_file is not None:
         df = load_data(file_bytes, file_name)
     except Exception as error:
         st.error(f"{t('read_error')} {error}")
- 
+
 if df is not None and df.empty:
     st.warning(t("empty"))
     df = None
- 
+
 if df is not None:
     st.success(t("loaded").format(rows=f"{len(df):,}", cols=df.shape[1]))
- 
+
     date_cols = detect_date_columns(df)
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     category_cols = df.select_dtypes(include=["object", "category", "string", "bool"]).columns.tolist()
     domain = detect_domain(df, file_name)
- 
+
     base, active_filters = render_filters(df, category_cols, date_cols, numeric_cols, file_key)
- 
+
     selection = get_chart_selection(file_key)
     view = apply_chart_selection(base, selection) if selection else base
     render_active_filters(active_filters, selection)
     if selection:
         values = ", ".join(str(v) for v in selection["values"])
         active_filters = active_filters + [f"{selection['col']} = {values} (chart click)"]
- 
+
     if view.empty:
         st.warning(t("no_rows"))
- 
+
     render_kpis(view, df, numeric_cols, date_cols, file_key)
     st.divider()
     render_chart_builder(base, numeric_cols, category_cols, date_cols, domain["colors"], file_key)
@@ -1251,11 +1256,11 @@ if df is not None:
     render_recommendations(df, numeric_cols, category_cols, date_cols, domain)
 elif uploaded_file is None:
     st.info(t("awaiting"))
- 
+
 chat_context = (dataset_context(view, df, file_name, active_filters) if df is not None
                 else "No dataset uploaded yet.")
 render_chat_widget(chat_context)
- 
+
 st.markdown(
     """
 <div class="footer-box">
@@ -1265,4 +1270,3 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
- 
