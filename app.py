@@ -901,13 +901,11 @@ def on_lang_change():
  
  
 st.session_state.setdefault("started", False)
-st.session_state.setdefault("lang_picked", False)
  
  
 def pick_language(code):
     st.session_state.lang = code
     st.session_state.lang_choice = code
-    st.session_state.lang_picked = True
  
  
 def start_app():
@@ -915,29 +913,37 @@ def start_app():
  
  
 def render_welcome():
-    picked = st.session_state.lang_picked
     lang = st.session_state.lang
     with st.container(key="welcome_card"):
-        st.markdown('<div class="welcome-brand">Dashboard Co-pilot Agent</div>', unsafe_allow_html=True)
-        st.markdown('<div class="welcome-ask">Choose your language &nbsp;·&nbsp; اختر اللغة</div>',
-                    unsafe_allow_html=True)
-        choice = st.columns(2)
-        choice[0].button("English", key="pick_en", on_click=pick_language, args=("en",),
-                         type="primary" if picked and lang == "en" else "secondary")
-        choice[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",),
-                         type="primary" if picked and lang == "ar" else "secondary")
+        st.markdown(
+            '<div class="welcome-top">'
+            '<span class="welcome-dot"></span>'
+            '<span class="welcome-brand">Dashboard Co-pilot Agent</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(key="welcome_lang"):
+            pills = st.columns(2)
+            pills[0].button("English", key="pick_en", on_click=pick_language, args=("en",),
+                            type="primary" if lang == "en" else "secondary")
+            pills[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",),
+                            type="primary" if lang == "ar" else "secondary")
  
-        if picked:
-            points = "".join(f"<li>{html.escape(p)}</li>" for p in t("welcome_points"))
-            st.markdown(
-                f'<div class="welcome-body">'
-                f'<h2 class="welcome-title">{html.escape(t("welcome_title"))}</h2>'
-                f'<p class="welcome-desc">{html.escape(t("welcome_desc"))}</p>'
-                f'<ul class="welcome-points">{points}</ul></div>',
-                unsafe_allow_html=True,
-            )
-            with st.container(key="welcome_start"):
-                st.button(t("start"), key="btn_start", on_click=start_app, type="primary")
+        features = "".join(
+            f'<div class="welcome-feature" style="--i:{i}">'
+            f'<span class="welcome-num">{i + 1:02d}</span>'
+            f'<span class="welcome-feature-text">{html.escape(point)}</span></div>'
+            for i, point in enumerate(t("welcome_points"))
+        )
+        st.markdown(
+            f'<div class="welcome-body">'
+            f'<h2 class="welcome-title">{html.escape(t("welcome_title"))}</h2>'
+            f'<p class="welcome-desc">{html.escape(t("welcome_desc"))}</p>'
+            f'<div class="welcome-features">{features}</div></div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(key="welcome_start"):
+            st.button(t("start"), key="btn_start", on_click=start_app, type="primary")
  
  
 if st.session_state.started:
@@ -1073,42 +1079,91 @@ div:has(> .st-key-chat_fab) {
 @keyframes langFade_en { from { opacity: .25; } to { opacity: 1; } }
 .block-container { animation: langFade___LANG__ .45s ease both; }
  
-@keyframes welcomeIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes welcomeIn { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes borderFlow { 0% { background-position: 0 0, 0% 50%; } 100% { background-position: 0 0, 300% 50%; } }
+@keyframes textIn___LANG__ { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes featIn___LANG__ { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7), 0 0 0 0 rgba(59, 130, 246, .45); }
+                   50% { box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7), 0 0 0 10px rgba(59, 130, 246, 0); } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+ 
 .st-key-welcome_card {
-    max-width: 560px; margin: 8vh auto 0; padding: 32px 28px 28px;
-    background: linear-gradient(160deg, rgba(30, 41, 59, .96) 0%, rgba(15, 23, 42, .98) 100%);
-    border: 1px solid rgba(59, 130, 246, .35); border-radius: 22px;
-    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .03) inset;
-    animation: welcomeIn .6s cubic-bezier(.16, 1, .3, 1) both;
+    max-width: 600px; margin: 6vh auto 0; padding: 28px 28px 26px;
+    border: 1px solid transparent; border-radius: 24px;
+    background:
+        linear-gradient(160deg, #1e293b 0%, #0f172a 100%) padding-box,
+        linear-gradient(120deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6) border-box;
+    background-size: 100% 100%, 300% 100%;
+    animation: welcomeIn .7s cubic-bezier(.16, 1, .3, 1) both, borderFlow 8s linear infinite;
+    box-shadow: 0 30px 70px -25px rgba(37, 99, 235, .45);
     color: #e2e8f0;
 }
-.welcome-brand {
-    text-align: center; font-size: .8rem; font-weight: 700; letter-spacing: .14em;
-    text-transform: uppercase; color: #60a5fa; margin-bottom: 18px;
+.welcome-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
+.welcome-dot { width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; animation: blink 1.8s ease-in-out infinite; }
+.welcome-brand { font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #93c5fd; }
+ 
+.st-key-welcome_lang {
+    width: fit-content; margin: 0 auto; padding: 4px; border-radius: 999px;
+    background: rgba(15, 23, 42, .8); border: 1px solid rgba(148, 163, 184, .25);
 }
-.welcome-ask { text-align: center; font-size: 1.05rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; }
-.st-key-welcome_card button {
-    width: 100%; border-radius: 14px; padding: .7rem 1rem; font-size: 1.05rem; font-weight: 700;
-    background: rgba(15, 23, 42, .6); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, .35);
-    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+.st-key-welcome_lang [data-testid="stHorizontalBlock"] { gap: 4px !important; flex-wrap: nowrap !important; }
+.st-key-welcome_lang [data-testid="stColumn"] { width: auto !important; flex: 0 0 auto !important; min-width: 0 !important; }
+.st-key-welcome_lang button {
+    border-radius: 999px !important; padding: .4rem 1.3rem !important; min-height: 0 !important;
+    border: none !important; background: transparent !important; color: #94a3b8 !important;
+    font-weight: 700; transition: background .35s ease, color .35s ease, transform .2s ease;
 }
-.st-key-welcome_card button:hover { transform: translateY(-2px); border-color: #3b82f6; color: #fff; }
-.st-key-welcome_card button[kind="primary"],
-.st-key-welcome_card button[data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: transparent; color: #fff;
-    box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7);
+.st-key-welcome_lang button:hover { color: #fff !important; transform: translateY(-1px); }
+.st-key-welcome_lang button[kind="primary"],
+.st-key-welcome_lang button[data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, #2563eb, #3b82f6) !important; color: #fff !important;
+    box-shadow: 0 4px 14px -2px rgba(37, 99, 235, .65);
 }
-.welcome-body { direction: __DIR__; text-align: __ALIGN__; margin-top: 14px; animation: welcomeIn .5s ease both; }
-.welcome-title { font-size: 2rem; font-weight: 800; margin: 6px 0 8px; color: #fff; text-align: center; }
-.welcome-desc { color: #cbd5e1; font-size: 1rem; line-height: 1.7; margin-bottom: 10px; text-align: center; }
-.welcome-points { margin: 0; padding-__ALIGN__: 1.2rem; color: #94a3b8; line-height: 1.9; font-size: .95rem; }
-.welcome-points li::marker { color: #3b82f6; }
-.st-key-welcome_start { margin-top: 10px; }
-.st-key-welcome_start button { font-size: 1.15rem; padding: .8rem 1rem; }
+ 
+.welcome-body { direction: __DIR__; margin-top: 18px; }
+.welcome-title {
+    text-align: center; font-size: 2.2rem; font-weight: 800; margin: 0 0 6px;
+    background: linear-gradient(90deg, #ffffff, #93c5fd); -webkit-background-clip: text;
+    background-clip: text; color: transparent;
+    animation: textIn___LANG__ .5s ease both;
+}
+.welcome-desc {
+    text-align: center; color: #cbd5e1; font-size: 1rem; line-height: 1.7; margin: 0 auto 16px; max-width: 470px;
+    animation: textIn___LANG__ .5s ease .08s both;
+}
+.welcome-features { display: grid; gap: 8px; }
+.welcome-feature {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px;
+    background: rgba(15, 23, 42, .55); border: 1px solid rgba(148, 163, 184, .14);
+    text-align: __ALIGN__; cursor: default;
+    animation: featIn___LANG__ .45s ease both; animation-delay: calc(.15s + var(--i) * 70ms);
+    transition: transform .25s ease, border-color .25s ease, background .25s ease;
+}
+.welcome-feature:hover {
+    transform: translateX(__NUDGE__); border-color: rgba(59, 130, 246, .55); background: rgba(37, 99, 235, .12);
+}
+.welcome-num {
+    flex: 0 0 auto; font-size: .75rem; font-weight: 800; color: #60a5fa; direction: ltr;
+    padding: 4px 8px; border-radius: 8px; background: rgba(59, 130, 246, .14);
+}
+.welcome-feature-text { color: #cbd5e1; font-size: .93rem; line-height: 1.5; }
+ 
+.st-key-welcome_start { margin-top: 18px; }
+.st-key-welcome_start button {
+    width: 100%; border-radius: 14px; padding: .8rem 1rem; font-size: 1.15rem; font-weight: 800;
+    background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; color: #fff;
+    animation: pulse 2.4s ease-in-out infinite;
+    transition: transform .2s ease, filter .2s ease;
+}
+.st-key-welcome_start button:hover { transform: translateY(-2px); filter: brightness(1.12); color: #fff; }
+.st-key-welcome_start button:active { transform: translateY(0) scale(.98); }
+ 
 @media (max-width: 640px) {
-    .st-key-welcome_card { margin-top: 3vh; padding: 24px 18px 20px; border-radius: 18px; }
-    .welcome-title { font-size: 1.6rem; }
-    .welcome-points { font-size: .88rem; }
+    .st-key-welcome_card { margin-top: 2vh; padding: 22px 16px 18px; border-radius: 20px; }
+    .welcome-title { font-size: 1.75rem; }
+    .welcome-feature { padding: 9px 11px; }
+    .welcome-feature-text { font-size: .86rem; }
+    .welcome-feature:hover { transform: none; }
 }
  
 @media (max-width: 900px) {
@@ -1135,7 +1190,8 @@ div:has(> .st-key-chat_fab) {
 """.replace("__DIR__", "rtl" if is_ar else "ltr") \
    .replace("__ALIGN__", "right" if is_ar else "left") \
    .replace("__SIDE__", "left") \
-   .replace("__LANG__", st.session_state.lang)
+   .replace("__LANG__", st.session_state.lang) \
+   .replace("__NUDGE__", "-4px" if is_ar else "4px")
  
 st.markdown(CSS, unsafe_allow_html=True)
  
