@@ -1,10 +1,3 @@
-"""Dashboard Co-pilot Agent — Wajd Al-Luhaibi
- 
-Upload a CSV/Excel file to get an interactive dashboard:
-Power BI-style filters, click-to-filter charts, smart KPI cards with
-period comparison, downloadable filtered data, context-aware design
-recommendations, and a Gemini-powered assistant that knows your data.
-"""
 import html
 import io
 import os
@@ -17,6 +10,7 @@ import plotly.express as px
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
  
 load_dotenv()
  
@@ -27,7 +21,7 @@ st.set_page_config(
 )
  
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-
+ 
 TEXT = {
     "ar": {
         "title": "مساعد لوحات التحكم الذكية",
@@ -37,7 +31,6 @@ TEXT = {
         "read_error": "تعذّرت قراءة الملف:",
         "empty": "الملف فارغ، لا توجد بيانات لعرضها.",
         "awaiting": "ارفع ملف بيانات للبدء في التحليل وصياغة اللوحات.",
-        # Filters
         "filters": "الفلاتر",
         "all": "الكل",
         "date_range": "الفترة الزمنية",
@@ -48,7 +41,6 @@ TEXT = {
         "reset_all": "مسح كل الفلاتر",
         "clear_chart": "إلغاء تحديد الرسم",
         "no_rows": "لا توجد بيانات تطابق الفلاتر الحالية. جرّب تخفيفها.",
-        # KPIs
         "kpi_header": "مؤشرات الأداء الرئيسية",
         "kpi_metric": "العمود الرقمي للمؤشرات",
         "compare_by": "المقارنة حسب",
@@ -70,13 +62,11 @@ TEXT = {
         "no_prev": "لا توجد فترة سابقة للمقارنة",
         "missing_sub": "من أصل {n} خلية",
         "dup_sub": "من أصل {n} صف",
-        # Tables
         "preview": "معاينة البيانات",
         "stats": "الإحصائيات",
         "no_numeric": "لا توجد أعمدة رقمية في هذا الملف.",
         "download_csv": "تحميل CSV",
         "download_xlsx": "تحميل Excel",
-        # Charts
         "chart_header": "منشئ الرسوم التفاعلية",
         "click_hint": "اضغط على عمود أو شريحة في الرسم لفلترة الداشبورد كاملاً.",
         "scatter_hint": "الفلترة بالضغط متاحة في الرسوم الشريطية والخطية والدائرية.",
@@ -96,7 +86,6 @@ TEXT = {
         "top_note": "يعرض الرسم أعلى {n} فئة فقط.",
         "pie_note": "يعرض الرسم أعلى {n} فئات، والباقي مجمّع تحت «أخرى».",
         "other": "أخرى",
-        # Recommendations
         "rec_header": "توصيات التصميم حسب محتوى ملفك",
         "tab_palette": "لوحة الألوان",
         "tab_kpi": "البطاقات والمؤشرات",
@@ -115,7 +104,6 @@ TEXT = {
         "rec_bar": "**Bar Chart** لمقارنة `{y}` بين فئات `{x}`.",
         "rec_scatter": "**Scatter** بين `{a}` و `{b}` لاكتشاف العلاقة بينهما.",
         "rec_none": "لا توجد أعمدة كافية لاقتراح مخططات.",
-        # Assistant
         "chat_header": "مساعد الدوال والبيانات",
         "chat_caption": "اسألني عن دوال الإكسل أو أكواد Pandas — أعرف أعمدة ملفك والفلاتر المطبّقة.",
         "chat_placeholder": "اكتب سؤالك هنا...",
@@ -137,7 +125,6 @@ TEXT = {
         "read_error": "Could not read the file:",
         "empty": "The file is empty — nothing to show.",
         "awaiting": "Upload a dataset to start building insights and dashboards.",
-        # Filters
         "filters": "Filters",
         "all": "All",
         "date_range": "Date range",
@@ -148,7 +135,6 @@ TEXT = {
         "reset_all": "Clear all filters",
         "clear_chart": "Clear chart selection",
         "no_rows": "No rows match the current filters. Try loosening them.",
-        # KPIs
         "kpi_header": "Key Performance Indicators",
         "kpi_metric": "Numeric column for KPIs",
         "compare_by": "Compare by",
@@ -170,13 +156,11 @@ TEXT = {
         "no_prev": "No previous period to compare",
         "missing_sub": "out of {n} cells",
         "dup_sub": "out of {n} rows",
-        # Tables
         "preview": "Data Preview",
         "stats": "Statistics",
         "no_numeric": "This file has no numeric columns.",
         "download_csv": "Download CSV",
         "download_xlsx": "Download Excel",
-        # Charts
         "chart_header": "Interactive Chart Builder",
         "click_hint": "Tap a bar, point or slice to filter the whole dashboard.",
         "scatter_hint": "Click-to-filter works on bar, line and pie charts.",
@@ -196,7 +180,6 @@ TEXT = {
         "top_note": "Showing the top {n} categories only.",
         "pie_note": "Showing the top {n} categories; the rest are grouped as “Other”.",
         "other": "Other",
-        # Recommendations
         "rec_header": "Smart Design Recommendations for Your File",
         "tab_palette": "Color Palette",
         "tab_kpi": "KPI Cards",
@@ -215,7 +198,6 @@ TEXT = {
         "rec_bar": "**Bar Chart** comparing `{y}` across `{x}`.",
         "rec_scatter": "**Scatter** of `{a}` vs `{b}` to spot a relationship.",
         "rec_none": "Not enough columns to recommend charts.",
-        # Assistant
         "chat_header": "Formulas & Data Assistant",
         "chat_caption": "Ask me about Excel formulas or Pandas code — I know your file's columns and active filters.",
         "chat_placeholder": "Ask your question...",
@@ -268,25 +250,19 @@ GENERAL_DOMAIN = {
 }
  
 DATE_HINTS = ("date", "time", "month", "year", "day", "تاريخ", "شهر", "سنة", "يوم", "وقت")
-MAX_FILTER_CATEGORIES = 50  # text columns with more unique values than this get no dropdown
+MAX_FILTER_CATEGORIES = 50
 MAX_CATEGORY_FILTERS = 4
  
-
-# State
-
 st.session_state.setdefault("lang", "en")
 st.session_state.setdefault("messages", [])
-st.session_state.setdefault("filter_ver", 0)  
-st.session_state.setdefault("chart_ver", 0)  
+st.session_state.setdefault("filter_ver", 0)
+st.session_state.setdefault("chart_ver", 0)
  
  
 def t(key):
     return TEXT[st.session_state.lang][key]
  
  
-
-# Data helpers
-
 @st.cache_data(show_spinner=False)
 def load_data(file_bytes, name):
     buffer = io.BytesIO(file_bytes)
@@ -294,14 +270,12 @@ def load_data(file_bytes, name):
         try:
             return pd.read_csv(buffer)
         except UnicodeDecodeError:
-            # Arabic CSVs exported from Excel are often Windows-1256
             buffer.seek(0)
             return pd.read_csv(buffer, encoding="cp1256")
     return pd.read_excel(buffer)
  
  
 def detect_date_columns(df):
-    """Return datetime columns, converting text columns that look like dates."""
     found = list(df.select_dtypes(include=["datetime", "datetimetz"]).columns)
     for col in df.select_dtypes(include=["object", "string"]).columns:
         if any(hint in str(col).lower() for hint in DATE_HINTS):
@@ -319,7 +293,6 @@ def detect_domain(df, file_name):
     tokens = {tok for tok in re.split(r"[\W_]+", text) if tok}
     for domain in DOMAINS:
         for key in domain["keys"]:
-            # Short keywords (like "hr") must be whole words to avoid false matches
             if key in tokens or (len(key) >= 4 and key in text):
                 return domain
     return GENERAL_DOMAIN
@@ -347,17 +320,13 @@ def pct_change(current, previous):
 def to_excel_bytes(df):
     out = df.copy()
     for col in out.select_dtypes(include=["datetimetz"]).columns:
-        out[col] = out[col].dt.tz_localize(None)  # Excel can't store time zones
+        out[col] = out[col].dt.tz_localize(None)
     buffer = io.BytesIO()
     out.to_excel(buffer, index=False)
     return buffer.getvalue()
  
  
-
-# Filters
-
 def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
-    """Power BI-style slicers. Returns (filtered_df, list of active-filter labels)."""
     ver = st.session_state.filter_ver
     mask = pd.Series(True, index=df.index)
     active = []
@@ -371,7 +340,6 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
         grid = st.columns(2)
         slot = 0
  
-        # Date range
         if date_cols:
             dcol = date_cols[0]
             dates = df[dcol].dropna()
@@ -384,7 +352,6 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                         key=f"f_{file_key}_{ver}_date",
                     )
                 slot += 1
-                # While the user is mid-selection only one date comes back
                 if isinstance(picked, (list, tuple)) and len(picked) == 2:
                     start, end = picked
                     if (start, end) != (lo, hi):
@@ -392,7 +359,6 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                         mask &= day.between(start, end)
                         active.append(f"{dcol}: {start} – {end}")
  
-        # Category dropdowns
         for col in filter_cats:
             options = sorted(df[col].dropna().astype(str).unique())
             with grid[slot % 2]:
@@ -406,7 +372,6 @@ def render_filters(df, category_cols, date_cols, numeric_cols, file_key):
                 shown = "، ".join(chosen[:3]) if st.session_state.lang == "ar" else ", ".join(chosen[:3])
                 active.append(f"{col}: {shown}" + (" …" if len(chosen) > 3 else ""))
  
-        # Numeric range
         usable_nums = [c for c in numeric_cols if not is_id_column(c) and df[c].nunique() > 1]
         if usable_nums:
             with grid[slot % 2]:
@@ -433,7 +398,6 @@ def build_chart_key(file_key, chart_type, x_axis, y_axis, agg):
  
  
 def expected_chart_key(file_key):
-    """The chart key the builder is about to render, from its controls' current values."""
     state = st.session_state
     parts = [state.get(f"cb_{name}_{file_key}") for name in ("type", "x", "y", "agg")]
     if None in parts or parts[0] == "scatter":
@@ -442,11 +406,9 @@ def expected_chart_key(file_key):
  
  
 def get_chart_selection(file_key):
-    """Read what the user clicked on the chart in the previous run."""
     info = st.session_state.get("active_chart")
     if not info or not info.get("selectable"):
         return None
-    # Ignore clicks from a chart that's about to be replaced (axis/type changed or cleared)
     if info["key"] != expected_chart_key(file_key):
         return None
     event = st.session_state.get(info["key"])
@@ -498,7 +460,6 @@ def render_active_filters(active, selection):
         st.rerun()
  
  
-# KPI cards
 def delta_html(pct, suffix, fallback=""):
     if pct is None:
         return html.escape(fallback)
@@ -508,7 +469,6 @@ def delta_html(pct, suffix, fallback=""):
  
  
 def kpi_grid(cards):
-    """cards: list of (title, value, sub_html)."""
     body = "".join(
         f'<div class="kpi-card"><div class="kpi-title">{html.escape(str(title))}</div>'
         f'<div class="kpi-value">{html.escape(str(value))}</div>'
@@ -593,8 +553,6 @@ def render_kpis(view, full, numeric_cols, date_cols, file_key):
     kpi_grid(cards)
  
  
-# Tables + download
-
 def render_tables(view, numeric_cols, file_name):
     tab_preview, tab_stats = st.tabs([t("preview"), t("stats")])
     with tab_preview:
@@ -603,7 +561,7 @@ def render_tables(view, numeric_cols, file_name):
         buttons = st.columns(2)
         buttons[0].download_button(
             t("download_csv"),
-            data=view.to_csv(index=False).encode("utf-8-sig"),  # utf-8-sig keeps Arabic readable in Excel
+            data=view.to_csv(index=False).encode("utf-8-sig"),
             file_name=f"{base}_filtered.csv",
             mime="text/csv",
             key="dl_csv",
@@ -617,7 +575,7 @@ def render_tables(view, numeric_cols, file_name):
                 key="dl_xlsx",
             )
         except Exception:
-            pass  # CSV download still works if openpyxl is missing
+            pass
     with tab_stats:
         if numeric_cols:
             st.dataframe(view[numeric_cols].describe().round(2), width="stretch")
@@ -625,22 +583,18 @@ def render_tables(view, numeric_cols, file_name):
             st.info(t("no_numeric"))
  
  
-
-# Chart builder (click-to-filter)
-
 def style_figure(fig):
     fig.update_layout(
         height=420,
         margin=dict(l=10, r=10, t=30, b=10),
         legend=dict(orientation="h", yanchor="top", y=-0.15),
-        dragmode=False,  # lets phones scroll the page instead of panning the chart
+        dragmode=False,
     )
     return fig
  
  
 def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, file_key):
     st.subheader(t("chart_header"))
-    # Put real measures before ID columns so the default Y isn't "order_id"
     numeric_cols = [c for c in numeric_cols if not is_id_column(c)] + \
                    [c for c in numeric_cols if is_id_column(c)]
     controls = st.columns(4)
@@ -668,7 +622,7 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
         st.session_state.active_chart = None
         return
  
-    default_x = len(date_cols) % len(x_options)  # first text column if there is one
+    default_x = len(date_cols) % len(x_options)
     x_axis = controls[1].selectbox(t("x"), x_options, index=default_x, key=f"cb_x_{file_key}")
     y_axis = controls[2].selectbox(t("y"), numeric_cols, key=f"cb_y_{file_key}")
     agg = controls[3].selectbox(
@@ -708,7 +662,6 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
             st.caption(t("top_note").format(n=limit))
         fig = px.bar(grouped, x=x_axis, y=y_axis, color_discrete_sequence=[colors[0]])
  
-    # A new key whenever the chart's meaning changes, so old clicks don't leak into a new chart
     chart_key = build_chart_key(file_key, chart_type, x_axis, y_axis, agg)
     st.session_state.active_chart = {"key": chart_key, "x": x_axis, "is_date": is_date, "selectable": True}
     st.plotly_chart(
@@ -718,9 +671,6 @@ def render_chart_builder(df, numeric_cols, category_cols, date_cols, colors, fil
     )
  
  
-
-# Recommendations
-
 def render_recommendations(df, numeric_cols, category_cols, date_cols, domain):
     lang = st.session_state.lang
     st.subheader(t("rec_header"))
@@ -758,16 +708,13 @@ def render_recommendations(df, numeric_cols, category_cols, date_cols, domain):
         st.markdown("\n".join(f"- {r}" for r in recs) if recs else t("rec_none"))
  
  
-
-# Gemini assistant
-
 def get_api_key():
     try:
-        if "GEMINI_API_KEY" in st.secrets:  # Streamlit Cloud
+        if "GEMINI_API_KEY" in st.secrets:
             return st.secrets["GEMINI_API_KEY"]
     except Exception:
         pass
-    return os.getenv("GEMINI_API_KEY")  # local .env
+    return os.getenv("GEMINI_API_KEY")
  
  
 @st.cache_resource(show_spinner=False)
@@ -794,10 +741,11 @@ def dataset_context(view, full, file_name, active_filters):
     return "\n\n".join(parts)[:6000]
  
  
-def ask_gemini(question, history, context):
+def stream_gemini(question, history, context):
     api_key = get_api_key()
     if not api_key:
-        return t("no_key")
+        yield t("no_key")
+        return
  
     language = "Arabic" if st.session_state.lang == "ar" else "English"
     past = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])
@@ -814,11 +762,25 @@ Conversation so far:
  
 User question: {question}"""
  
-    try:
-        response = get_client(api_key).models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        return response.text or t("ai_error")
-    except Exception as error:
-        return f"{t('ai_error')}\n\n`{error}`"
+    client = get_client(api_key)
+    fast = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
+    for config in (fast, None):
+        got_text = False
+        try:
+            for chunk in client.models.generate_content_stream(
+                model=GEMINI_MODEL, contents=prompt, config=config,
+            ):
+                if chunk.text:
+                    got_text = True
+                    yield chunk.text
+            if not got_text:
+                yield t("ai_error")
+            return
+        except Exception as error:
+            if config is not None and not got_text:
+                continue
+            yield f"\n\n{t('ai_error')}\n\n`{error}`"
+            return
  
  
 SUGGESTIONS = {
@@ -844,18 +806,14 @@ def clear_chat():
  
  
 def render_chat_widget(context):
-    """A floating chat button; tapping it opens the whole chat in one panel."""
     messages = st.session_state.messages
     with st.container(key="chat_fab"):
         with st.popover(t("chat_button")):
-            # Compact header: title + small clear button on the same line
             head = st.columns([5, 1], vertical_alignment="center")
             head[0].markdown(f"**{t('chat_header')}**")
             if messages:
                 head[1].button(t("clear_short"), key="btn_clear_chat", on_click=clear_chat, help=t("clear_chat"))
  
-            # Messages (and ready-made questions) scroll inside a fixed box,
-            # so the input below is always visible without scrolling the page
             with st.container(height=280, border=False):
                 if not messages:
                     with st.chat_message("assistant"):
@@ -869,9 +827,7 @@ def render_chat_widget(context):
                         st.markdown(message["content"])
                 if st.session_state.get("awaiting_reply") and messages:
                     with st.chat_message("assistant"):
-                        with st.spinner(t("thinking")):
-                            reply = ask_gemini(messages[-1]["content"], messages[:-1], context)
-                        st.markdown(reply)
+                        reply = st.write_stream(stream_gemini(messages[-1]["content"], messages[:-1], context))
                     messages.append({"role": "assistant", "content": reply})
                     st.session_state.awaiting_reply = False
  
@@ -881,15 +837,12 @@ def render_chat_widget(context):
                 st.form_submit_button(t("send"), on_click=submit_chat)
  
  
-
-# Page
-
 LANG_LABELS = {"ar": "ع", "en": "EN"}
  
  
 def on_lang_change():
     choice = st.session_state.lang_choice
-    if choice is None:  # tapping the active pill again would unselect it — keep the current one
+    if choice is None:
         st.session_state.lang_choice = st.session_state.lang
         return
     if choice != st.session_state.lang:
@@ -923,12 +876,10 @@ CSS = """
 .stApp .stMarkdown, .stApp h1, .stApp h2, .stApp h3,
 .stApp [data-testid="stCaptionContainer"] { text-align: __ALIGN__; }
  
-/* Keep tables, charts and code left-to-right even in Arabic mode */
 [data-testid="stDataFrame"], .js-plotly-plot, .stApp pre, .stApp code {
     direction: ltr; text-align: left; unicode-bidi: isolate;
 }
  
-/* KPI cards */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -954,7 +905,6 @@ CSS = """
 .delta.down { color: #f87171; }
 .delta.flat { color: #cbd5e1; }
  
-/* Active-filter chips */
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; }
 .chips-label { color: #94a3b8; font-size: .85rem; font-weight: 600; }
 .chip {
@@ -965,7 +915,6 @@ CSS = """
 }
 .chip-chart { background: rgba(16, 185, 129, .15); color: #a7f3d0; border-color: rgba(16, 185, 129, .4); }
  
-/* Palette */
 .palette { display: flex; flex-wrap: wrap; gap: 16px; margin: 6px 0 4px; }
 .swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .color-box {
@@ -975,7 +924,6 @@ CSS = """
 }
 .color-box:hover { transform: scale(1.2) rotate(5deg); box-shadow: 0 8px 20px rgba(59, 130, 246, .5); }
  
-/* Footer */
 .footer-box {
     margin-top: 48px; padding: 22px; text-align: center;
     border-top: 1px solid rgba(100, 116, 139, .3); font-size: 1rem;
@@ -983,7 +931,6 @@ CSS = """
 .footer-box a { color: #3b82f6; text-decoration: none; font-weight: 700; }
 .footer-box a:hover { color: #60a5fa; text-decoration: underline; }
  
-/* Floating chat button, pinned to the corner like a customer-service chat */
 .st-key-chat_fab,
 div:has(> .st-key-chat_fab) {
     position: fixed !important; bottom: 22px; __SIDE__: 22px; top: auto !important;
@@ -997,7 +944,6 @@ div:has(> .st-key-chat_fab) {
     transition: transform .2s ease, filter .2s ease;
 }
 .st-key-chat_fab button:hover { transform: translateY(-2px); filter: brightness(1.1); color: #fff; }
-/* The chat panel that opens from the button */
 [data-testid="stPopoverBody"] {
     width: min(400px, calc(100vw - 32px)) !important;
     max-width: none !important;
@@ -1005,7 +951,6 @@ div:has(> .st-key-chat_fab) {
     overflow-y: auto;
     direction: __DIR__;
 }
-/* Ready-made questions as small chips */
 .st-key-chat_suggestions { gap: 6px; }
 .st-key-chat_suggestions button {
     width: 100%; justify-content: flex-start; text-align: __ALIGN__;
@@ -1015,7 +960,6 @@ div:has(> .st-key-chat_fab) {
 .st-key-chat_suggestions button:hover { background: rgba(59, 130, 246, .22); border-color: #3b82f6; }
 [data-testid="stPopoverBody"] [data-testid="stFormSubmitButton"] button { width: 100%; }
  
-/* Language toggle: animated pill switch */
 .st-key-lang_switch { display: flex; align-items: flex-end; }
 .st-key-lang_switch [data-testid="stButtonGroup"] {
     background: rgba(30, 41, 59, .85); border: 1px solid rgba(59, 130, 246, .3);
@@ -1033,17 +977,13 @@ div:has(> .st-key-chat_fab) {
     background: linear-gradient(135deg, #2563eb, #3b82f6) !important; color: #fff !important;
     box-shadow: 0 4px 14px -2px rgba(37, 99, 235, .65);
 }
-/* Re-plays a soft fade on the page every time the language changes */
-/* Opacity only: a transform here would stop the chat button from staying fixed on screen */
 @keyframes langFade_ar { from { opacity: .25; } to { opacity: 1; } }
 @keyframes langFade_en { from { opacity: .25; } to { opacity: 1; } }
 .block-container { animation: langFade___LANG__ .45s ease both; }
  
-/* Tablets */
 @media (max-width: 900px) {
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-/* Phones */
 @media (max-width: 640px) {
     .block-container { padding: 1.25rem 1rem 6rem !important; }
     .stApp h1 { font-size: 1.45rem !important; }
@@ -1065,7 +1005,7 @@ div:has(> .st-key-chat_fab) {
 """.replace("__DIR__", "rtl" if is_ar else "ltr") \
    .replace("__ALIGN__", "right" if is_ar else "left") \
    .replace("__SIDE__", "left" if is_ar else "right") \
-   .replace("__LANG__", st.session_state.lang)  # bubble sits on the reading-end side
+   .replace("__LANG__", st.session_state.lang)
  
 st.markdown(CSS, unsafe_allow_html=True)
  
@@ -1100,14 +1040,12 @@ if df is not None:
     category_cols = df.select_dtypes(include=["object", "category", "string", "bool"]).columns.tolist()
     domain = detect_domain(df, file_name)
  
-    # 1) Slicers → base view (drives the chart)
     base, active_filters = render_filters(df, category_cols, date_cols, numeric_cols, file_key)
  
-    # 2) Chart click from the last run → final view (drives KPIs and table)
     selection = get_chart_selection(file_key)
     view = apply_chart_selection(base, selection) if selection else base
     render_active_filters(active_filters, selection)
-    if selection:  # tell the assistant about the chart click too
+    if selection:
         values = ", ".join(str(v) for v in selection["values"])
         active_filters = active_filters + [f"{selection['col']} = {values} (chart click)"]
  
@@ -1124,9 +1062,6 @@ if df is not None:
 elif uploaded_file is None:
     st.info(t("awaiting"))
  
-
-# Floating assistant (customer-service style bubble in the corner)
-
 chat_context = (dataset_context(view, df, file_name, active_filters) if df is not None
                 else "No dataset uploaded yet.")
 render_chat_widget(chat_context)
