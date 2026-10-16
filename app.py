@@ -1,5 +1,6 @@
 import html
 import io
+import itertools
 import os
 import re
 import warnings
@@ -719,7 +720,7 @@ def get_api_key():
  
 @st.cache_resource(show_spinner=False)
 def get_client(api_key):
-    return genai.Client(api_key=api_key)
+    return genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60_000))
  
  
 def dataset_context(view, full, file_name, active_filters):
@@ -827,7 +828,10 @@ def render_chat_widget(context):
                         st.markdown(message["content"])
                 if st.session_state.get("awaiting_reply") and messages:
                     with st.chat_message("assistant"):
-                        reply = st.write_stream(stream_gemini(messages[-1]["content"], messages[:-1], context))
+                        pieces = stream_gemini(messages[-1]["content"], messages[:-1], context)
+                        with st.spinner(t("thinking")):
+                            first = next(pieces, "")
+                        reply = st.write_stream(itertools.chain([first], pieces))
                     messages.append({"role": "assistant", "content": reply})
                     st.session_state.awaiting_reply = False
  
@@ -873,6 +877,7 @@ CSS = """
     to   { opacity: 1; transform: translateY(0); }
 }
 .stApp { direction: __DIR__; }
+[data-testid="stToolbar"], [data-testid="stHeader"], [data-testid="stDecoration"] { display: none !important; }
 .stApp .stMarkdown, .stApp h1, .stApp h2, .stApp h3,
 .stApp [data-testid="stCaptionContainer"] { text-align: __ALIGN__; }
  
@@ -1004,7 +1009,7 @@ div:has(> .st-key-chat_fab) {
 </style>
 """.replace("__DIR__", "rtl" if is_ar else "ltr") \
    .replace("__ALIGN__", "right" if is_ar else "left") \
-   .replace("__SIDE__", "left" if is_ar else "right") \
+   .replace("__SIDE__", "left") \
    .replace("__LANG__", st.session_state.lang)
  
 st.markdown(CSS, unsafe_allow_html=True)
