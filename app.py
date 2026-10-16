@@ -116,6 +116,16 @@ TEXT = {
         "ai_quota": "وصل المساعد للحد المسموح مؤقتاً. حاول مرة ثانية بعد شوي.",
         "clear_chat": "مسح المحادثة",
         "clear_short": "مسح",
+        "welcome_title": "أهلاً بك",
+        "welcome_desc": "Dashboard Co-pilot يحوّل ملف بياناتك إلى لوحة تحكم تفاعلية خلال ثوانٍ، بدون أي برمجة.",
+        "welcome_points": [
+            "ارفع ملف CSV أو Excel وشوف أهم الأرقام فوراً.",
+            "فلتر بياناتك واضغط على الرسوم لاستكشافها، مثل Power BI.",
+            "احصل على اقتراحات للألوان والمؤشرات والرسوم المناسبة لبياناتك.",
+            "اسأل المساعد الذكي عن دوال الإكسل وأكواد Pandas.",
+            "حمّل بياناتك بعد الفلترة كملف CSV أو Excel.",
+        ],
+        "start": "ابدأ",
         "lang_switched": "تم التبديل إلى العربية",
         "chat_button": "المساعد الذكي",
         "send": "إرسال",
@@ -212,6 +222,16 @@ TEXT = {
         "ai_quota": "The assistant has reached its usage limit for now. Please try again shortly.",
         "clear_chat": "Clear chat",
         "clear_short": "Clear",
+        "welcome_title": "Welcome",
+        "welcome_desc": "Dashboard Co-pilot turns your data file into an interactive dashboard in seconds, with no coding needed.",
+        "welcome_points": [
+            "Upload a CSV or Excel file and see the key numbers instantly.",
+            "Filter your data and click charts to explore it, like Power BI.",
+            "Get color, KPI and chart suggestions that fit your data.",
+            "Ask the AI assistant about Excel formulas and Pandas code.",
+            "Download your filtered data as CSV or Excel.",
+        ],
+        "start": "Start",
         "lang_switched": "Switched to English",
         "chat_button": "Ask the assistant",
         "send": "Send",
@@ -880,19 +900,60 @@ def on_lang_change():
         st.session_state.lang_toast = True
  
  
-st.session_state.setdefault("lang_choice", st.session_state.lang)
-with st.container(key="lang_switch"):
-    st.segmented_control(
-        "Language",
-        options=["ar", "en"],
-        format_func=LANG_LABELS.get,
-        key="lang_choice",
-        on_change=on_lang_change,
-        label_visibility="collapsed",
-    )
+st.session_state.setdefault("started", False)
+st.session_state.setdefault("lang_picked", False)
  
-if st.session_state.pop("lang_toast", False):
-    st.toast(t("lang_switched"))
+ 
+def pick_language(code):
+    st.session_state.lang = code
+    st.session_state.lang_choice = code
+    st.session_state.lang_picked = True
+ 
+ 
+def start_app():
+    st.session_state.started = True
+ 
+ 
+def render_welcome():
+    picked = st.session_state.lang_picked
+    lang = st.session_state.lang
+    with st.container(key="welcome_card"):
+        st.markdown('<div class="welcome-brand">Dashboard Co-pilot Agent</div>', unsafe_allow_html=True)
+        st.markdown('<div class="welcome-ask">Choose your language &nbsp;·&nbsp; اختر اللغة</div>',
+                    unsafe_allow_html=True)
+        choice = st.columns(2)
+        choice[0].button("English", key="pick_en", on_click=pick_language, args=("en",),
+                         type="primary" if picked and lang == "en" else "secondary")
+        choice[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",),
+                         type="primary" if picked and lang == "ar" else "secondary")
+ 
+        if picked:
+            points = "".join(f"<li>{html.escape(p)}</li>" for p in t("welcome_points"))
+            st.markdown(
+                f'<div class="welcome-body">'
+                f'<h2 class="welcome-title">{html.escape(t("welcome_title"))}</h2>'
+                f'<p class="welcome-desc">{html.escape(t("welcome_desc"))}</p>'
+                f'<ul class="welcome-points">{points}</ul></div>',
+                unsafe_allow_html=True,
+            )
+            with st.container(key="welcome_start"):
+                st.button(t("start"), key="btn_start", on_click=start_app, type="primary")
+ 
+ 
+if st.session_state.started:
+    st.session_state.setdefault("lang_choice", st.session_state.lang)
+    with st.container(key="lang_switch"):
+        st.segmented_control(
+            "Language",
+            options=["ar", "en"],
+            format_func=LANG_LABELS.get,
+            key="lang_choice",
+            on_change=on_lang_change,
+            label_visibility="collapsed",
+        )
+ 
+    if st.session_state.pop("lang_toast", False):
+        st.toast(t("lang_switched"))
  
 is_ar = st.session_state.lang == "ar"
  
@@ -1012,6 +1073,44 @@ div:has(> .st-key-chat_fab) {
 @keyframes langFade_en { from { opacity: .25; } to { opacity: 1; } }
 .block-container { animation: langFade___LANG__ .45s ease both; }
  
+@keyframes welcomeIn { from { opacity: 0; transform: translateY(24px) scale(.98); } to { opacity: 1; transform: none; } }
+.st-key-welcome_card {
+    max-width: 560px; margin: 8vh auto 0; padding: 32px 28px 28px;
+    background: linear-gradient(160deg, rgba(30, 41, 59, .96) 0%, rgba(15, 23, 42, .98) 100%);
+    border: 1px solid rgba(59, 130, 246, .35); border-radius: 22px;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+    animation: welcomeIn .6s cubic-bezier(.16, 1, .3, 1) both;
+    color: #e2e8f0;
+}
+.welcome-brand {
+    text-align: center; font-size: .8rem; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: #60a5fa; margin-bottom: 18px;
+}
+.welcome-ask { text-align: center; font-size: 1.05rem; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; }
+.st-key-welcome_card button {
+    width: 100%; border-radius: 14px; padding: .7rem 1rem; font-size: 1.05rem; font-weight: 700;
+    background: rgba(15, 23, 42, .6); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, .35);
+    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+}
+.st-key-welcome_card button:hover { transform: translateY(-2px); border-color: #3b82f6; color: #fff; }
+.st-key-welcome_card button[kind="primary"],
+.st-key-welcome_card button[data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, #2563eb, #3b82f6); border-color: transparent; color: #fff;
+    box-shadow: 0 8px 22px -6px rgba(37, 99, 235, .7);
+}
+.welcome-body { direction: __DIR__; text-align: __ALIGN__; margin-top: 14px; animation: welcomeIn .5s ease both; }
+.welcome-title { font-size: 2rem; font-weight: 800; margin: 6px 0 8px; color: #fff; text-align: center; }
+.welcome-desc { color: #cbd5e1; font-size: 1rem; line-height: 1.7; margin-bottom: 10px; text-align: center; }
+.welcome-points { margin: 0; padding-__ALIGN__: 1.2rem; color: #94a3b8; line-height: 1.9; font-size: .95rem; }
+.welcome-points li::marker { color: #3b82f6; }
+.st-key-welcome_start { margin-top: 10px; }
+.st-key-welcome_start button { font-size: 1.15rem; padding: .8rem 1rem; }
+@media (max-width: 640px) {
+    .st-key-welcome_card { margin-top: 3vh; padding: 24px 18px 20px; border-radius: 18px; }
+    .welcome-title { font-size: 1.6rem; }
+    .welcome-points { font-size: .88rem; }
+}
+ 
 @media (max-width: 900px) {
     .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1039,6 +1138,10 @@ div:has(> .st-key-chat_fab) {
    .replace("__LANG__", st.session_state.lang)
  
 st.markdown(CSS, unsafe_allow_html=True)
+ 
+if not st.session_state.started:
+    render_welcome()
+    st.stop()
  
 st.title(t("title"))
 st.caption(t("subtitle"))
