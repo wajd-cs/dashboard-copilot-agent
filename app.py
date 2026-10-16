@@ -866,7 +866,7 @@ def render_chat_widget(context):
                     with st.container(key="chat_suggestions"):
                         for i, suggestion in enumerate(SUGGESTIONS[st.session_state.lang]):
                             st.button(suggestion, key=f"chat_suggest_{i}",
-                                      on_click=queue_question, args=(suggestion,))
+                                      on_click=queue_question, args=(suggestion,), width="stretch")
                 for message in messages:
                     with st.chat_message(message["role"]):
                         st.markdown(message["content"])
@@ -924,13 +924,13 @@ def render_welcome():
                 '<div class="w-hello-main">Welcome</div>'
                 '<div class="w-hello-ar">أهلاً بك</div>'
                 '</div>'
-                '<div class="w-choose">Choose your language &nbsp;·&nbsp; اختر اللغة</div>',
+                '<div class="w-choose"><span dir="ltr">Choose your language</span><span class="w-sep">·</span><span dir="rtl">اختر اللغة</span></div>',
                 unsafe_allow_html=True,
             )
             with st.container(key="welcome_lang"):
                 pills = st.columns(2)
-                pills[0].button("English", key="pick_en", on_click=pick_language, args=("en",))
-                pills[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",))
+                pills[0].button("English", key="pick_en", on_click=pick_language, args=("en",), width="stretch")
+                pills[1].button("العربية", key="pick_ar", on_click=pick_language, args=("ar",), width="stretch")
         return
 
     steps = "".join(
@@ -950,7 +950,7 @@ def render_welcome():
             unsafe_allow_html=True,
         )
         with st.container(key="welcome_start"):
-            st.button(t("start"), key="btn_start", on_click=start_app, type="primary")
+            st.button(t("start"), key="btn_start", on_click=start_app, type="primary", width="stretch")
         with st.container(key="welcome_back"):
             st.button(t("change_lang"), key="btn_back_lang", on_click=back_to_language, type="tertiary")
 
@@ -1117,8 +1117,14 @@ div:has(> .st-key-chat_fab) {
 
 .st-key-welcome_lang [data-testid="stHorizontalBlock"] { gap: 10px !important; flex-wrap: nowrap !important; }
 .st-key-welcome_lang [data-testid="stColumn"] { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+.st-key-welcome_lang [data-testid="stElementContainer"],
+.st-key-welcome_lang .stButton,
+.st-key-welcome_start [data-testid="stElementContainer"],
+.st-key-welcome_start .stButton { width: 100% !important; }
+.st-key-welcome_lang [data-testid="stColumn"] > div { width: 100% !important; }
+.w-sep { margin: 0 8px; color: #475569; }
 .st-key-welcome_lang button {
-    width: 100%; border-radius: 14px; padding: .7rem .5rem; font-size: 1.02rem; font-weight: 700;
+    width: 100% !important; border-radius: 14px; padding: .7rem .5rem; font-size: 1.02rem; font-weight: 700;
     background: rgba(15, 23, 42, .7); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, .3);
     transition: transform .2s ease, border-color .2s ease, background .25s ease, box-shadow .25s ease;
 }
